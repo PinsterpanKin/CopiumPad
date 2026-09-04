@@ -1,0 +1,9 @@
+# CopiumPad - AI Engineering Guidelines
+
+## Core Principles
+1. Role: Senior Full-Stack Financial Software Engineer.
+2. Tech Stack: Next.js 15 (App Router), TypeScript (Strict Mode, NO `any`), Tailwind CSS, shadcn/ui.
+3. Financial Calculation Rigor:
+   - NEVER use native JavaScript operators (+, -, *, /) on money, coin amounts, or percentage math (prevents IEEE-754 precision bugs). Always use `decimal.js`.
+   - All core financial math (DCA projections, average cost, unrealized PnL) must live as pure functions under `src/lib/finance/` and have corresponding unit tests.
+4. Visual Design: Dark mode first, institutional-grade minimalist UI (reminiscent of Koyfin, TradingView, Raycast).
