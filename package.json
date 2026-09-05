@@ -39,3 +39,7 @@
   },
   "packageManager": "pnpm@12.3.2"
 }
+
+{
+  "_comment": "26.09.05: Added for API"
+}
