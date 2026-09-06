@@ -36,6 +36,43 @@ export function percentOf(
   return toDecimal(part).div(denominator).times(100).toDecimalPlaces(fractionDigits);
 }
 
+/** ((current - basis) / basis) * 100. Zero basis returns 0. */
+export function returnPercent(
+  current: DecimalInput,
+  basis: DecimalInput,
+): Decimal {
+  const denominator = toDecimal(basis);
+  if (denominator.isZero()) {
+    return new Decimal(0);
+  }
+
+  return toDecimal(current).minus(denominator).div(denominator).times(100);
+}
+
+/**
+ * Session P&L in dollars from Yahoo-style `regularMarketChangePercent`
+ * (percent points, e.g. 1.23 === 1.23%).
+ */
+export function dayPnl(
+  quantity: DecimalInput,
+  currentPrice: DecimalInput,
+  changePercent: DecimalInput,
+): Decimal {
+  const price = toDecimal(currentPrice);
+  const pct = toDecimal(changePercent).div(100);
+  const factor = new Decimal(1).plus(pct);
+  if (factor.isZero()) {
+    return new Decimal(0);
+  }
+
+  const previousClose = price.div(factor);
+  return toDecimal(quantity).times(price.minus(previousClose));
+}
+
+export function sumDecimals(values: readonly Decimal[]): Decimal {
+  return values.reduce((total, value) => total.plus(value), new Decimal(0));
+}
+
 export function formatUsd(
   value: DecimalInput,
   fractionDigits = 2,
