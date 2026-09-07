@@ -16,3 +16,6 @@ pnpm-debug.log*
 .DS_Store
 coverage/
 *.tsbuildinfo
+*.cursorrules
+AGENTS.md
+CLAUDE.md
