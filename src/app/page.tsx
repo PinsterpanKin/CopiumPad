@@ -371,14 +371,14 @@ export default function Home() {
               DCA &amp; Scenario Simulator
             </h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              测算如果每周定投 $200，或下跌 15% 触发网格加仓的收益曲线
+              Simulate dollar-cost averaging and other scenarios to see how your portfolio would perform under different market conditions.
             </p>
           </div>
           <button
             type="button"
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-zinc-950 shadow-[0_0_24px_rgba(52,211,153,0.45)] transition hover:bg-emerald-300 hover:shadow-[0_0_32px_rgba(52,211,153,0.65)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-400 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-emerald-500"
           >
-            <Play className="size-4 fill-current" aria-hidden />
+            <Play className="size-4" aria-hidden />
             Launch Simulator
           </button>
         </section>
