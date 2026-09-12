@@ -14,7 +14,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   formatPercent,
-  formatQuantity,
   formatSignedUsd,
   formatUsd,
   toDecimal,
@@ -27,7 +26,7 @@ import {
   type QuoteSnapshot,
 } from "@/lib/finance/portfolio";
 
-const HOLDINGS: Holding[] = [
+const INITIAL_HOLDINGS: Holding[] = [
   {
     symbol: "VOO",
     name: "Vanguard S&P 500 ETF",
@@ -48,7 +47,7 @@ const HOLDINGS: Holding[] = [
   },
 ];
 
-const QUOTE_SYMBOLS = HOLDINGS.map((holding) => holding.symbol).join(",");
+const QUOTE_SYMBOLS = INITIAL_HOLDINGS.map((holding) => holding.symbol).join(",");
 
 type QuoteDto = {
   symbol: string;
@@ -92,7 +91,12 @@ function formatMaybePercent(value: DecimalInput | null): string {
   return value === null ? "—" : formatPercent(value);
 }
 
+function isValidHoldingValue(value: string): boolean {
+  return value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
+}
+
 export default function Home() {
+  const [holdings, setHoldings] = useState<Holding[]>(INITIAL_HOLDINGS);
   const [quotes, setQuotes] = useState<QuoteSnapshot[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -159,10 +163,19 @@ export default function Home() {
       quotes.map((quote) => [quote.symbol.toUpperCase(), quote]),
     );
 
-    return HOLDINGS.map((holding) =>
-      markPosition(holding, quotesBySymbol.get(holding.symbol.toUpperCase())),
+    return holdings.map((holding) =>
+      markPosition(
+        {
+          ...holding,
+          quantity: isValidHoldingValue(holding.quantity) ? holding.quantity : "0",
+          averageCost: isValidHoldingValue(holding.averageCost)
+            ? holding.averageCost
+            : "0",
+        },
+        quotesBySymbol.get(holding.symbol.toUpperCase()),
+      ),
     );
-  }, [quotes]);
+  }, [holdings, quotes]);
 
   const totals = useMemo(() => portfolioTotals(positions), [positions]);
   const hasMarks = positions.some((position) => position.marketValue !== null);
@@ -339,13 +352,45 @@ export default function Home() {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-zinc-300">
-                      {formatUsd(position.averageCost)}
+                      <input
+                        aria-label={`${position.symbol} average cost`}
+                        type="text"
+                        inputMode="decimal"
+                        value={holdings.find((holding) => holding.symbol === position.symbol)?.averageCost ?? ""}
+                        onChange={(event) => {
+                          const averageCost = event.target.value;
+                          setHoldings((current) =>
+                            current.map((holding) =>
+                              holding.symbol === position.symbol
+                                ? { ...holding, averageCost }
+                                : holding,
+                            ),
+                          );
+                        }}
+                        className="w-28 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 font-mono text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
+                      />
                     </td>
                     <td className="px-5 py-4 text-zinc-100">
                       {formatMaybeUsd(position.livePrice)}
                     </td>
                     <td className="px-5 py-4 text-zinc-300">
-                      {formatQuantity(position.quantity)}
+                      <input
+                        aria-label={`${position.symbol} quantity`}
+                        type="text"
+                        inputMode="decimal"
+                        value={holdings.find((holding) => holding.symbol === position.symbol)?.quantity ?? ""}
+                        onChange={(event) => {
+                          const quantity = event.target.value;
+                          setHoldings((current) =>
+                            current.map((holding) =>
+                              holding.symbol === position.symbol
+                                ? { ...holding, quantity }
+                                : holding,
+                            ),
+                          );
+                        }}
+                        className="w-24 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 font-mono text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
+                      />
                     </td>
                     <td className="px-5 py-4 text-zinc-100">
                       {formatMaybeUsd(position.marketValue)}
