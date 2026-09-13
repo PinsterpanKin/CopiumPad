@@ -7,7 +7,10 @@ const yf = new YahooFinance();
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const symbolsParam = searchParams.get("symbols") || "VOO,QQQ,BTC-USD";
-    const symbols = symbolsParam.split(",").map((s) => s.trim().toUpperCase());
+    const symbols = symbolsParam
+      .split(",")
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean);
   
     try {
       const quotes = await Promise.all(
@@ -34,3 +37,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Failed to fetch quotes" }, { status: 500 });
     }
   }
+
+export async function searchQuotes(query: string) {
+  const result = await yf.search(query, {
+    quotesCount: 8,
+    newsCount: 0,
+  });
+
+  return result.quotes
+    .filter(
+      (quote) =>
+        "symbol" in quote &&
+        "isYahooFinance" in quote &&
+        (quote.quoteType === "EQUITY" || quote.quoteType === "ETF"),
+    )
+    .map((quote) => ({
+      symbol: quote.symbol,
+      name: quote.longname || quote.shortname || quote.symbol,
+      exchange: quote.exchDisp || quote.exchange,
+      type: quote.quoteType,
+    }));
+}
