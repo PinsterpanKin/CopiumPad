@@ -5,6 +5,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   ChartLine,
+  Info,
   Pill,
   Play,
   RefreshCw,
@@ -55,6 +56,12 @@ type QuoteDto = {
   price: number;
   changePercent: number;
   currency: string;
+  quoteType: string;
+  trailingPE: number | null;
+  forwardPE: number | null;
+  marketCap: number | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
   error?: boolean;
 };
 
@@ -118,6 +125,7 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const quoteSymbols = useMemo(
     () => holdings.map((holding) => holding.symbol).join(","),
     [holdings],
@@ -147,7 +155,14 @@ export default function Home() {
         name: quote.name,
         price: quote.price.toString(),
         changePercent: quote.changePercent.toString(),
+        currency: quote.currency,
         error: quote.error,
+        quoteType: quote.quoteType,
+        trailingPE: quote.trailingPE,
+        forwardPE: quote.forwardPE,
+        marketCap: quote.marketCap,
+        fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
+        fiftyTwoWeekLow: quote.fiftyTwoWeekLow,
       }));
 
       setQuotes(snapshots);
@@ -200,6 +215,14 @@ export default function Home() {
 
   const totals = useMemo(() => portfolioTotals(positions), [positions]);
   const hasMarks = positions.some((position) => position.marketValue !== null);
+  const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? null;
+  const selectedPosition = positions.find((position) => position.symbol === selectedSymbol) ?? null;
+
+  function formatMetric(value: number | null | undefined, suffix = ""): string {
+    return value == null
+      ? "Not available"
+      : `${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}${suffix}`;
+  }
 
   async function searchAssets(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -437,12 +460,20 @@ export default function Home() {
                 {positions.map((position) => (
                   <tr key={position.symbol} className="hover:bg-zinc-900/80">
                     <td className="px-5 py-4">
-                      <div className="font-sans font-medium text-zinc-100">
-                        {position.symbol}
-                      </div>
-                      <div className="font-sans text-xs text-zinc-500">
-                        {position.name}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSymbol(position.symbol)}
+                        className="group text-left"
+                        aria-label={`View details for ${position.symbol}`}
+                      >
+                        <span className="flex items-center gap-1.5 font-sans font-medium text-zinc-100">
+                          {position.symbol}
+                          <Info className="size-3.5 text-zinc-600 transition group-hover:text-emerald-400" aria-hidden />
+                        </span>
+                        <span className="block font-sans text-xs text-zinc-500 group-hover:text-zinc-300">
+                          {position.name}
+                        </span>
+                      </button>
                     </td>
                     <td className="px-5 py-4 text-zinc-300">
                       <input
@@ -506,6 +537,56 @@ export default function Home() {
               </tbody>
             </table>
           </div>
+          {selectedQuote !== null && selectedPosition !== null ? (
+            <aside className="border-t border-zinc-800 bg-zinc-950/60 px-5 py-5" aria-live="polite">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-mono text-lg font-semibold text-zinc-100">{selectedQuote.symbol}</h3>
+                    <span className="rounded-md border border-zinc-700 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                      {selectedQuote.quoteType ?? "SECURITY"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-zinc-500">{selectedQuote.name}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSymbol(null)}
+                  className="self-start text-xs font-medium text-zinc-500 transition hover:text-zinc-200"
+                >
+                  Close details
+                </button>
+              </div>
+              {selectedQuote.quoteType === "CRYPTO" ? (
+                <p className="mt-5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-400">
+                  Fundamental metrics are not available for crypto assets.
+                </p>
+              ) : (
+                <dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                    <dt className="text-xs text-zinc-500">P/E ratio</dt>
+                    <dd className="mt-1 font-mono text-sm text-zinc-100">{formatMetric(selectedQuote.trailingPE)}</dd>
+                  </div>
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                    <dt className="text-xs text-zinc-500">Forward P/E</dt>
+                    <dd className="mt-1 font-mono text-sm text-zinc-100">{formatMetric(selectedQuote.forwardPE)}</dd>
+                  </div>
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                    <dt className="text-xs text-zinc-500">Market cap</dt>
+                    <dd className="mt-1 font-mono text-sm text-zinc-100">{formatMetric(selectedQuote.marketCap, ` ${selectedQuote.currency ?? "USD"}`)}</dd>
+                  </div>
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                    <dt className="text-xs text-zinc-500">52-week range</dt>
+                    <dd className="mt-1 font-mono text-sm text-zinc-100">
+                      {selectedQuote.fiftyTwoWeekLow == null || selectedQuote.fiftyTwoWeekHigh == null
+                        ? "Not available"
+                        : `${formatMetric(selectedQuote.fiftyTwoWeekLow)} - ${formatMetric(selectedQuote.fiftyTwoWeekHigh)}`}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+            </aside>
+          ) : null}
         </section>
 
         <section className="flex flex-col gap-5 rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-emerald-950/30 p-6 sm:flex-row sm:items-center sm:justify-between">

@@ -22,6 +22,13 @@ export type QuoteSnapshot = {
   price: DecimalInput;
   changePercent: DecimalInput;
   error?: boolean;
+  currency?: string;
+  quoteType?: string;
+  trailingPE?: number | null;
+  forwardPE?: number | null;
+  marketCap?: number | null;
+  fiftyTwoWeekHigh?: number | null;
+  fiftyTwoWeekLow?: number | null;
 };
 
 export type PositionMark = {

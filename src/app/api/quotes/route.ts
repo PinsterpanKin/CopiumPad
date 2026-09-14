@@ -23,10 +23,29 @@ export async function GET(request: NextRequest) {
               price: quote.regularMarketPrice ?? 0,
               changePercent: quote.regularMarketChangePercent ?? 0,
               currency: quote.currency || "USD",
+              quoteType: quote.quoteType || "UNKNOWN",
+              trailingPE: quote.trailingPE ?? null,
+              forwardPE: quote.forwardPE ?? null,
+              marketCap: quote.marketCap ?? null,
+              fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh ?? null,
+              fiftyTwoWeekLow: quote.fiftyTwoWeekLow ?? null,
             };
           } catch (err) {
             console.error(`Error fetching quote for ${symbol}:`, err);
-            return { symbol, name: symbol, price: 0, changePercent: 0, currency: "USD", error: true };
+            return {
+              symbol,
+              name: symbol,
+              price: 0,
+              changePercent: 0,
+              currency: "USD",
+              quoteType: "UNKNOWN",
+              trailingPE: null,
+              forwardPE: null,
+              marketCap: null,
+              fiftyTwoWeekHigh: null,
+              fiftyTwoWeekLow: null,
+              error: true,
+            };
           }
         })
       );
