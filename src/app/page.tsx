@@ -57,6 +57,7 @@ type QuoteDto = {
   changePercent: number;
   currency: string;
   exchange: string;
+  region: string | null;
   quoteType: string;
   trailingPE: number | null;
   forwardPE: number | null;
@@ -183,6 +184,7 @@ export default function Home() {
         changePercent: quote.changePercent.toString(),
         currency: quote.currency,
         exchange: quote.exchange,
+        region: quote.region,
         error: quote.error,
         quoteType: quote.quoteType,
         trailingPE: quote.trailingPE,
@@ -247,6 +249,21 @@ export default function Home() {
 
   function quoteFor(symbol: string): QuoteSnapshot | undefined {
     return quotes.find((quote) => quote.symbol.toUpperCase() === symbol.toUpperCase());
+  }
+
+  function countryFlag(region: string | null | undefined, quoteType?: string): string {
+    if (quoteType === "CRYPTOCURRENCY" || region === null || region === undefined) {
+      return "🌐";
+    }
+
+    const countryCode = region.toUpperCase();
+    if (!/^[A-Z]{2}$/.test(countryCode)) {
+      return "🌐";
+    }
+
+    return String.fromCodePoint(
+      ...countryCode.split("").map((letter) => 127397 + letter.charCodeAt(0)),
+    );
   }
 
   function formatMetric(value: number | null | undefined, suffix = ""): string {
@@ -498,6 +515,13 @@ export default function Home() {
                         aria-label={`View details for ${position.symbol}`}
                       >
                         <span className="flex items-center gap-1.5 font-sans font-medium text-zinc-100">
+                          <span
+                            className="text-base leading-none"
+                            role="img"
+                            aria-label={`${quoteFor(position.symbol)?.region ?? "Unknown"} market`}
+                          >
+                            {countryFlag(quoteFor(position.symbol)?.region, quoteFor(position.symbol)?.quoteType)}
+                          </span>
                           {position.symbol}
                           <Info className="size-3.5 text-zinc-600 transition group-hover:text-emerald-400" aria-hidden />
                         </span>

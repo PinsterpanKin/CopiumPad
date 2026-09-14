@@ -4,6 +4,62 @@ import YahooFinance from "yahoo-finance2";
 // 26.09.05: Instantiate client here
 const yf = new YahooFinance();
 
+function marketRegion(quote: {
+  exchange?: string;
+  fullExchangeName?: string;
+  currency?: string;
+  quoteType?: string;
+}): string | null {
+  if (quote.quoteType === "CRYPTOCURRENCY") {
+    return null;
+  }
+
+  const exchange = `${quote.exchange ?? ""} ${quote.fullExchangeName ?? ""}`.toLowerCase();
+  const exchangeRegions: Array<[RegExp, string]> = [
+    [/singapore|\bsgx\b|\bses\b/, "SG"],
+    [/hong kong|\bhkg\b|\bhkex\b/, "HK"],
+    [/tokyo|japan exchange|\bjpx\b|\btyo\b/, "JP"],
+    [/london|\blse\b|\blon\b/, "GB"],
+    [/toronto|\btsx\b|\btor\b/, "CA"],
+    [/frankfurt|\bfra\b/, "DE"],
+    [/paris|euronext paris|\bpar\b/, "FR"],
+    [/amsterdam|\bams\b/, "NL"],
+    [/milan|\bmil\b/, "IT"],
+    [/zurich|\bsix\b|\bebs\b/, "CH"],
+    [/australia|sydney|\basx\b/, "AU"],
+    [/india|\bbse\b|\bnse\b/, "IN"],
+    [/shanghai|\bshh\b|shenzhen|\bshz\b/, "CN"],
+    [/korea|\bksc\b|\bkospi\b/, "KR"],
+    [/taiwan|\btai\b/, "TW"],
+    [/brazil|\bsao\b|b3 /, "BR"],
+    [/nyse|nasdaq|cboe|\bnyq\b|\bnms\b|\bngm\b|\bpcx\b/, "US"],
+  ];
+
+  for (const [pattern, region] of exchangeRegions) {
+    if (pattern.test(exchange)) {
+      return region;
+    }
+  }
+
+  const currencyRegions: Record<string, string> = {
+    AUD: "AU",
+    CAD: "CA",
+    CHF: "CH",
+    CNY: "CN",
+    EUR: "EU",
+    GBP: "GB",
+    HKD: "HK",
+    INR: "IN",
+    JPY: "JP",
+    KRW: "KR",
+    SGD: "SG",
+    TWD: "TW",
+    USD: "US",
+  };
+
+  return quote.currency === undefined ? null : currencyRegions[quote.currency] ?? null;
+}
+
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const symbolsParam = searchParams.get("symbols") || "VOO,QQQ,BTC-USD";
@@ -24,6 +80,7 @@ export async function GET(request: NextRequest) {
               changePercent: quote.regularMarketChangePercent ?? 0,
               currency: quote.currency || "USD",
               exchange: quote.fullExchangeName || quote.exchange || "Unknown market",
+              region: marketRegion(quote),
               quoteType: quote.quoteType || "UNKNOWN",
               trailingPE: quote.trailingPE ?? null,
               forwardPE: quote.forwardPE ?? null,
@@ -40,6 +97,7 @@ export async function GET(request: NextRequest) {
               changePercent: 0,
               currency: "USD",
               exchange: "Unknown market",
+              region: null,
               quoteType: "UNKNOWN",
               trailingPE: null,
               forwardPE: null,

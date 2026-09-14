@@ -24,6 +24,7 @@ export type QuoteSnapshot = {
   error?: boolean;
   currency?: string;
   exchange?: string;
+  region?: string | null;
   quoteType?: string;
   trailingPE?: number | null;
   forwardPE?: number | null;
