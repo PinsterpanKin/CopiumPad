@@ -56,6 +56,7 @@ type QuoteDto = {
   price: number;
   changePercent: number;
   currency: string;
+  exchange: string;
   quoteType: string;
   trailingPE: number | null;
   forwardPE: number | null;
@@ -99,8 +100,33 @@ function pnlClassName(value: DecimalInput | null): string {
   return "text-zinc-400";
 }
 
-function formatMaybeUsd(value: DecimalInput | null): string {
-  return value === null ? "—" : formatUsd(value);
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  AUD: "A$",
+  CAD: "C$",
+  CHF: "CHF",
+  CNY: "CN¥",
+  EUR: "€",
+  GBP: "£",
+  HKD: "HK$",
+  JPY: "¥",
+  SGD: "S$",
+  USD: "$",
+};
+
+function formatAssetCurrency(value: DecimalInput, currency = "USD"): string {
+  const code = currency.toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[code] ?? `${code} `;
+  return `${symbol}${Number(toDecimal(value).toString()).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatMaybeAssetCurrency(
+  value: DecimalInput | null,
+  currency?: string,
+): string {
+  return value === null ? "—" : formatAssetCurrency(value, currency);
 }
 
 function formatMaybeSignedUsd(value: DecimalInput | null): string {
@@ -156,6 +182,7 @@ export default function Home() {
         price: quote.price.toString(),
         changePercent: quote.changePercent.toString(),
         currency: quote.currency,
+        exchange: quote.exchange,
         error: quote.error,
         quoteType: quote.quoteType,
         trailingPE: quote.trailingPE,
@@ -217,6 +244,10 @@ export default function Home() {
   const hasMarks = positions.some((position) => position.marketValue !== null);
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? null;
   const selectedPosition = positions.find((position) => position.symbol === selectedSymbol) ?? null;
+
+  function quoteFor(symbol: string): QuoteSnapshot | undefined {
+    return quotes.find((quote) => quote.symbol.toUpperCase() === symbol.toUpperCase());
+  }
 
   function formatMetric(value: number | null | undefined, suffix = ""): string {
     return value == null
@@ -473,6 +504,11 @@ export default function Home() {
                         <span className="block font-sans text-xs text-zinc-500 group-hover:text-zinc-300">
                           {position.name}
                         </span>
+                        {quoteFor(position.symbol) !== undefined ? (
+                          <span className="mt-1 inline-flex rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 font-sans text-[10px] uppercase tracking-wider text-zinc-500">
+                            {quoteFor(position.symbol)?.exchange ?? "Unknown market"} · {quoteFor(position.symbol)?.currency ?? "USD"}
+                          </span>
+                        ) : null}
                       </button>
                     </td>
                     <td className="px-5 py-4 text-zinc-300">
@@ -493,9 +529,10 @@ export default function Home() {
                         }}
                         className="w-28 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 font-mono text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
                       />
+                      <span className="ml-2 text-xs text-zinc-600">{quoteFor(position.symbol)?.currency ?? "USD"}</span>
                     </td>
                     <td className="px-5 py-4 text-zinc-100">
-                      {formatMaybeUsd(position.livePrice)}
+                      {formatMaybeAssetCurrency(position.livePrice, quoteFor(position.symbol)?.currency)}
                     </td>
                     <td className="px-5 py-4 text-zinc-300">
                       <input
@@ -517,7 +554,7 @@ export default function Home() {
                       />
                     </td>
                     <td className="px-5 py-4 text-zinc-100">
-                      {formatMaybeUsd(position.marketValue)}
+                      {formatMaybeAssetCurrency(position.marketValue, quoteFor(position.symbol)?.currency)}
                     </td>
                     <td
                       className={`px-5 py-4 text-right font-medium ${pnlClassName(position.unrealizedPnl)}`}
@@ -548,6 +585,9 @@ export default function Home() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-zinc-500">{selectedQuote.name}</p>
+                  <p className="mt-1 text-xs uppercase tracking-wider text-zinc-600">
+                    {selectedQuote.exchange ?? "Unknown market"} · {selectedQuote.currency ?? "USD"}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -573,14 +613,18 @@ export default function Home() {
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
                     <dt className="text-xs text-zinc-500">Market cap</dt>
-                    <dd className="mt-1 font-mono text-sm text-zinc-100">{formatMetric(selectedQuote.marketCap, ` ${selectedQuote.currency ?? "USD"}`)}</dd>
+                    <dd className="mt-1 font-mono text-sm text-zinc-100">
+                      {selectedQuote.marketCap == null
+                        ? "Not available"
+                        : formatAssetCurrency(selectedQuote.marketCap, selectedQuote.currency)}
+                    </dd>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
                     <dt className="text-xs text-zinc-500">52-week range</dt>
                     <dd className="mt-1 font-mono text-sm text-zinc-100">
                       {selectedQuote.fiftyTwoWeekLow == null || selectedQuote.fiftyTwoWeekHigh == null
                         ? "Not available"
-                        : `${formatMetric(selectedQuote.fiftyTwoWeekLow)} - ${formatMetric(selectedQuote.fiftyTwoWeekHigh)}`}
+                        : `${formatAssetCurrency(selectedQuote.fiftyTwoWeekLow, selectedQuote.currency)} - ${formatAssetCurrency(selectedQuote.fiftyTwoWeekHigh, selectedQuote.currency)}`}
                     </dd>
                   </div>
                 </dl>

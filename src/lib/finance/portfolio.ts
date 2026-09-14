@@ -23,6 +23,7 @@ export type QuoteSnapshot = {
   changePercent: DecimalInput;
   error?: boolean;
   currency?: string;
+  exchange?: string;
   quoteType?: string;
   trailingPE?: number | null;
   forwardPE?: number | null;
