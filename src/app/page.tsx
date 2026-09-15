@@ -7,6 +7,7 @@ import {
   ChartLine,
   Info,
   Pill,
+  Pencil,
   Play,
   RefreshCw,
   Search,
@@ -28,27 +29,8 @@ import {
   type Holding,
   type QuoteSnapshot,
 } from "@/lib/finance/portfolio";
-
-const INITIAL_HOLDINGS: Holding[] = [
-  {
-    symbol: "VOO",
-    name: "Vanguard S&P 500 ETF",
-    quantity: "50",
-    averageCost: "450",
-  },
-  {
-    symbol: "QQQ",
-    name: "Invesco QQQ Trust",
-    quantity: "30",
-    averageCost: "380",
-  },
-  {
-    symbol: "BTC-USD",
-    name: "Bitcoin USD",
-    quantity: "0.5",
-    averageCost: "60000",
-  },
-];
+import { PositionDialog } from "@/components/position-dialog";
+import { usePortfolioStorage } from "@/hooks/usePortfolioStorage";
 
 type QuoteDto = {
   symbol: string;
@@ -143,7 +125,13 @@ function isValidHoldingValue(value: string): boolean {
 }
 
 export default function Home() {
-  const [holdings, setHoldings] = useState<Holding[]>(INITIAL_HOLDINGS);
+  const {
+    positions: holdings,
+    isHydrated,
+    addPosition,
+    removePosition,
+    updatePosition,
+  } = usePortfolioStorage();
   const [quotes, setQuotes] = useState<QuoteSnapshot[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -153,12 +141,21 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
+  const [positionDialogInitial, setPositionDialogInitial] = useState<Partial<Holding>>({});
   const quoteSymbols = useMemo(
-    () => holdings.map((holding) => holding.symbol).join(","),
+    () => [...new Set(holdings.map((holding) => holding.symbol.toUpperCase()))].join(","),
     [holdings],
   );
 
   const loadQuotes = useCallback(async (signal?: AbortSignal) => {
+    if (!quoteSymbols) {
+      setQuotes([]);
+      setLastUpdated(null);
+      setIsRefreshing(false);
+      return;
+    }
+
     setIsRefreshing(true);
     setErrorMessage(null);
 
@@ -218,10 +215,16 @@ export default function Home() {
   }, [quoteSymbols]);
 
   useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
     const controller = new AbortController();
-    void loadQuotes(controller.signal);
-    return () => controller.abort();
-  }, [loadQuotes]);
+    const timer = window.setTimeout(() => void loadQuotes(controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [isHydrated, loadQuotes]);
 
   const positions = useMemo(() => {
     const quotesBySymbol = new Map(
@@ -298,21 +301,33 @@ export default function Home() {
   }
 
   function addHolding(result: SearchResult) {
-    if (holdings.some((holding) => holding.symbol === result.symbol)) {
-      return;
-    }
-
-    setHoldings((current) => [
-      ...current,
-      { symbol: result.symbol, name: result.name, quantity: "0", averageCost: "0" },
-    ]);
+    setPositionDialogInitial({ symbol: result.symbol, name: result.name });
+    setIsPositionDialogOpen(true);
     setSearchQuery("");
     setSearchResults([]);
     setSearchError(null);
   }
 
   function removeHolding(symbol: string) {
-    setHoldings((current) => current.filter((holding) => holding.symbol !== symbol));
+    removePosition(symbol);
+  }
+
+  function openNewPositionDialog() {
+    setPositionDialogInitial({});
+    setIsPositionDialogOpen(true);
+  }
+
+  function openEditPositionDialog(holding: Holding) {
+    setPositionDialogInitial(holding);
+    setIsPositionDialogOpen(true);
+  }
+
+  function savePosition(position: Holding) {
+    if (holdings.some((holding) => holding.symbol === position.symbol)) {
+      updatePosition(position);
+    } else {
+      addPosition(position);
+    }
   }
 
   return (
@@ -449,6 +464,13 @@ export default function Home() {
             <div className="flex shrink-0 gap-2">
               <button
                 type="button"
+                onClick={openNewPositionDialog}
+                className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-medium text-zinc-950 transition hover:bg-emerald-500"
+              >
+                Add holding
+              </button>
+              <button
+                type="button"
                 onClick={() => void loadQuotes()}
                 disabled={isRefreshing}
                 className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
@@ -543,13 +565,8 @@ export default function Home() {
                         value={holdings.find((holding) => holding.symbol === position.symbol)?.averageCost ?? ""}
                         onChange={(event) => {
                           const averageCost = event.target.value;
-                          setHoldings((current) =>
-                            current.map((holding) =>
-                              holding.symbol === position.symbol
-                                ? { ...holding, averageCost }
-                                : holding,
-                            ),
-                          );
+                          const holding = holdings.find((item) => item.symbol === position.symbol);
+                          if (holding) updatePosition({ ...holding, averageCost });
                         }}
                         className="w-28 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 font-mono text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
                       />
@@ -566,13 +583,8 @@ export default function Home() {
                         value={holdings.find((holding) => holding.symbol === position.symbol)?.quantity ?? ""}
                         onChange={(event) => {
                           const quantity = event.target.value;
-                          setHoldings((current) =>
-                            current.map((holding) =>
-                              holding.symbol === position.symbol
-                                ? { ...holding, quantity }
-                                : holding,
-                            ),
-                          );
+                          const holding = holdings.find((item) => item.symbol === position.symbol);
+                          if (holding) updatePosition({ ...holding, quantity });
                         }}
                         className="w-24 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 font-mono text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
                       />
@@ -589,9 +601,14 @@ export default function Home() {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button type="button" onClick={() => removeHolding(position.symbol)} aria-label={`Remove ${position.symbol}`} className="rounded-md p-1.5 text-zinc-500 transition hover:bg-red-500/10 hover:text-red-400">
-                        <X className="size-4" aria-hidden />
-                      </button>
+                      <div className="flex justify-end gap-1">
+                        <button type="button" onClick={() => openEditPositionDialog(holdings.find((holding) => holding.symbol === position.symbol) ?? position)} aria-label={`Edit ${position.symbol}`} className="rounded-md p-1.5 text-zinc-500 transition hover:bg-zinc-800 hover:text-emerald-400">
+                          <Pencil className="size-4" aria-hidden />
+                        </button>
+                        <button type="button" onClick={() => removeHolding(position.symbol)} aria-label={`Remove ${position.symbol}`} className="rounded-md p-1.5 text-zinc-500 transition hover:bg-red-500/10 hover:text-red-400">
+                          <X className="size-4" aria-hidden />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -675,6 +692,12 @@ export default function Home() {
           </button>
         </section>
       </div>
+      <PositionDialog
+        open={isPositionDialogOpen}
+        initialPosition={positionDialogInitial}
+        onOpenChange={setIsPositionDialogOpen}
+        onSubmit={savePosition}
+      />
     </div>
   );
 }
