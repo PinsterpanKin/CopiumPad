@@ -109,8 +109,29 @@ export async function GET(request: NextRequest) {
           }
         })
       );
+
+      const currencies = [...new Set(quotes.map((quote) => quote.currency))];
+      const usdRates = new Map<string, number | null>([["USD", 1]]);
+      await Promise.all(
+        currencies
+          .filter((currency) => currency !== "USD")
+          .map(async (currency) => {
+            try {
+              const fxQuote = await yf.quote(`${currency}USD=X`);
+              usdRates.set(currency, fxQuote.regularMarketPrice ?? null);
+            } catch (err) {
+              console.error(`Error fetching USD conversion for ${currency}:`, err);
+              usdRates.set(currency, null);
+            }
+          }),
+      );
+
+      const quotesWithUsdRates = quotes.map((quote) => ({
+        ...quote,
+        usdRate: usdRates.get(quote.currency) ?? null,
+      }));
   
-      return NextResponse.json({ success: true, data: quotes });
+      return NextResponse.json({ success: true, data: quotesWithUsdRates });
     } catch (error) {
       console.error("API error:", error);
       return NextResponse.json({ success: false, error: "Failed to fetch quotes" }, { status: 500 });

@@ -37,6 +37,7 @@ type QuoteDto = {
   name: string;
   price: number;
   changePercent: number;
+  usdRate: number | null;
   currency: string;
   exchange: string;
   region: string | null;
@@ -179,6 +180,7 @@ export default function Home() {
         name: quote.name,
         price: quote.price.toString(),
         changePercent: quote.changePercent.toString(),
+        usdRate: quote.usdRate?.toString() ?? null,
         currency: quote.currency,
         exchange: quote.exchange,
         region: quote.region,
@@ -246,7 +248,7 @@ export default function Home() {
   }, [holdings, quotes]);
 
   const totals = useMemo(() => portfolioTotals(positions), [positions]);
-  const hasMarks = positions.some((position) => position.marketValue !== null);
+  const hasMarks = positions.some((position) => position.marketValueUsd !== null);
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? null;
   const selectedPosition = positions.find((position) => position.symbol === selectedSymbol) ?? null;
 

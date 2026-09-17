@@ -47,4 +47,35 @@ describe("markPosition + portfolioTotals", () => {
       totals.dayReturnPercent.toDecimalPlaces(2).equals(new Decimal("1")),
     ).toBe(true);
   });
+
+  it("converts non-USD positions before rolling up portfolio totals", () => {
+    const singaporePosition = markPosition(
+      { symbol: "D05.SI", name: "DBS", quantity: "10", averageCost: "100" },
+      {
+        symbol: "D05.SI",
+        name: "DBS",
+        price: "110",
+        changePercent: "0",
+        currency: "SGD",
+        usdRate: "0.74",
+      },
+    );
+    const usPosition = markPosition(
+      { symbol: "VOO", name: "VOO", quantity: "1", averageCost: "100" },
+      {
+        symbol: "VOO",
+        name: "VOO",
+        price: "100",
+        changePercent: "0",
+        currency: "USD",
+        usdRate: "1",
+      },
+    );
+
+    const totals = portfolioTotals([singaporePosition, usPosition]);
+
+    expect(totals.totalValue.equals(new Decimal("914"))).toBe(true);
+    expect(totals.netUnrealizedPnl.equals(new Decimal("74"))).toBe(true);
+    expect(totals.netUnrealizedPnlPercent.toDecimalPlaces(2).equals(new Decimal("8.81"))).toBe(true);
+  });
 });

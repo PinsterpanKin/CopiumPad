@@ -21,6 +21,7 @@ export type QuoteSnapshot = {
   name: string;
   price: DecimalInput;
   changePercent: DecimalInput;
+  usdRate?: DecimalInput | null;
   error?: boolean;
   currency?: string;
   exchange?: string;
@@ -39,12 +40,17 @@ export type PositionMark = {
   quantity: string;
   averageCost: string;
   livePrice: Decimal | null;
+  currency: string | null;
+  usdRate: Decimal | null;
   changePercent: Decimal | null;
   quoteError: boolean;
   marketValue: Decimal | null;
+  marketValueUsd: Decimal | null;
   unrealizedPnl: Decimal | null;
+  unrealizedPnlUsd: Decimal | null;
   unrealizedPnlPercent: Decimal | null;
   dayPnl: Decimal | null;
+  dayPnlUsd: Decimal | null;
 };
 
 export type PortfolioTotals = {
@@ -62,6 +68,12 @@ export function markPosition(
   const quoteError = quote === undefined || quote.error === true;
   const livePrice =
     quoteError || quote === undefined ? null : toDecimal(quote.price);
+  const usdRate =
+    quote?.usdRate == null
+      ? quote?.currency === undefined || quote.currency.toUpperCase() === "USD"
+        ? new Decimal(1)
+        : null
+      : toDecimal(quote.usdRate);
   const hasMark = livePrice !== null && !livePrice.isZero();
 
   if (!hasMark || livePrice === null || quote === undefined) {
@@ -71,16 +83,28 @@ export function markPosition(
       quantity: holding.quantity,
       averageCost: holding.averageCost,
       livePrice: livePrice,
+      currency: quote?.currency ?? null,
+      usdRate,
       changePercent: quoteError || quote === undefined ? null : toDecimal(quote.changePercent),
       quoteError: quoteError || livePrice === null || livePrice.isZero(),
       marketValue: null,
+      marketValueUsd: null,
       unrealizedPnl: null,
+      unrealizedPnlUsd: null,
       unrealizedPnlPercent: null,
       dayPnl: null,
+      dayPnlUsd: null,
     };
   }
 
   const changePercent = toDecimal(quote.changePercent);
+  const localMarketValue = marketValue(holding.quantity, livePrice);
+  const localUnrealizedPnl = unrealizedPnl(
+    holding.quantity,
+    holding.averageCost,
+    livePrice,
+  );
+  const localDayPnl = dayPnl(holding.quantity, livePrice, changePercent);
 
   return {
     symbol: holding.symbol,
@@ -88,16 +112,17 @@ export function markPosition(
     quantity: holding.quantity,
     averageCost: holding.averageCost,
     livePrice,
+    currency: quote.currency ?? null,
+    usdRate,
     changePercent,
     quoteError: false,
-    marketValue: marketValue(holding.quantity, livePrice),
-    unrealizedPnl: unrealizedPnl(
-      holding.quantity,
-      holding.averageCost,
-      livePrice,
-    ),
+    marketValue: localMarketValue,
+    marketValueUsd: usdRate === null ? null : localMarketValue.times(usdRate),
+    unrealizedPnl: localUnrealizedPnl,
+    unrealizedPnlUsd: usdRate === null ? null : localUnrealizedPnl.times(usdRate),
     unrealizedPnlPercent: returnPercent(livePrice, holding.averageCost),
-    dayPnl: dayPnl(holding.quantity, livePrice, changePercent),
+    dayPnl: localDayPnl,
+    dayPnlUsd: usdRate === null ? null : localDayPnl.times(usdRate),
   };
 }
 
@@ -107,23 +132,30 @@ export function portfolioTotals(positions: readonly PositionMark[]): PortfolioTo
       position,
     ): position is PositionMark & {
       marketValue: Decimal;
+      marketValueUsd: Decimal;
+      usdRate: Decimal;
       unrealizedPnl: Decimal;
+      unrealizedPnlUsd: Decimal;
       dayPnl: Decimal;
+      dayPnlUsd: Decimal;
     } =>
       position.marketValue !== null &&
+      position.marketValueUsd !== null &&
       position.unrealizedPnl !== null &&
-      position.dayPnl !== null,
+      position.unrealizedPnlUsd !== null &&
+      position.dayPnl !== null &&
+      position.dayPnlUsd !== null
   );
 
-  const totalValue = sumDecimals(marked.map((position) => position.marketValue));
+  const totalValue = sumDecimals(marked.map((position) => position.marketValueUsd));
   const netUnrealizedPnl = sumDecimals(
-    marked.map((position) => position.unrealizedPnl),
+    marked.map((position) => position.unrealizedPnlUsd),
   );
-  const dayPnlTotal = sumDecimals(marked.map((position) => position.dayPnl));
+  const dayPnlTotal = sumDecimals(marked.map((position) => position.dayPnlUsd));
   const previousValue = totalValue.minus(dayPnlTotal);
   const costBasis = sumDecimals(
     marked.map((position) =>
-      marketValue(position.quantity, position.averageCost),
+      marketValue(position.quantity, position.averageCost).times(position.usdRate),
     ),
   );
 
