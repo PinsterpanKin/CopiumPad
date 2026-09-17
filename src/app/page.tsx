@@ -19,7 +19,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   formatPercent,
   formatSignedUsd,
-  formatUsd,
   toDecimal,
   type DecimalInput,
 } from "@/lib/finance/money";
@@ -54,6 +53,8 @@ type QuoteDto = {
 type QuotesResponse = {
   success: boolean;
   data?: QuoteDto[];
+  displayCurrency?: string;
+  displayCurrencyUsdRate?: number | null;
   error?: string;
 };
 
@@ -114,6 +115,8 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",
 };
 
+const DISPLAY_CURRENCIES = ["USD", "SGD", "CNY", "GBP", "EUR", "HKD", "TWD"] as const;
+
 function formatAssetCurrency(value: DecimalInput, currency = "USD"): string {
   const code = currency.toUpperCase();
   const symbol = CURRENCY_SYMBOLS[code] ?? `${code} `;
@@ -158,6 +161,8 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [displayCurrency, setDisplayCurrency] = useState("USD");
+  const [displayCurrencyUsdRate, setDisplayCurrencyUsdRate] = useState<number | null>(1);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [isPositionDialogOpen, setIsPositionDialogOpen] = useState(false);
   const [positionDialogInitial, setPositionDialogInitial] = useState<Partial<Holding>>({});
@@ -179,7 +184,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        `/api/quotes?symbols=${encodeURIComponent(quoteSymbols)}`,
+        `/api/quotes?symbols=${encodeURIComponent(quoteSymbols)}&currency=${displayCurrency}`,
         { signal },
       );
 
@@ -211,6 +216,11 @@ export default function Home() {
       }));
 
       setQuotes(snapshots);
+      setDisplayCurrencyUsdRate(
+        payload.displayCurrency === displayCurrency
+          ? payload.displayCurrencyUsdRate ?? null
+          : null,
+      );
       setLastUpdated(
         new Intl.DateTimeFormat("en-US", {
           hour: "2-digit",
@@ -231,7 +241,7 @@ export default function Home() {
         setIsRefreshing(false);
       }
     }
-  }, [quoteSymbols]);
+  }, [displayCurrency, quoteSymbols]);
 
   useEffect(() => {
     if (!isHydrated) {
@@ -265,6 +275,11 @@ export default function Home() {
   }, [holdings, quotes]);
 
   const totals = useMemo(() => portfolioTotals(positions), [positions]);
+  const hasMarks = positions.some((position) => position.marketValueUsd !== null);
+  const displayedTotalValue =
+    hasMarks && displayCurrencyUsdRate !== null
+      ? totals.totalValue.div(displayCurrencyUsdRate)
+      : null;
   const watchlistClusters = useMemo<WatchlistCluster[]>(() => {
     const quotesBySymbol = new Map(
       quotes.map((quote) => [quote.symbol.toUpperCase(), quote]),
@@ -288,7 +303,6 @@ export default function Home() {
 
     return [...clusters.values()];
   }, [positions, quotes]);
-  const hasMarks = positions.some((position) => position.marketValueUsd !== null);
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? null;
   const selectedPosition = positions.find((position) => position.symbol === selectedSymbol) ?? null;
 
@@ -424,9 +438,25 @@ export default function Home() {
         <section className="grid gap-4 md:grid-cols-3">
           <article className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
                 <Wallet className="size-3.5" aria-hidden />
                 Total Portfolio Value
+                <select
+                  aria-label="Portfolio display currency"
+                  value={displayCurrency}
+                  onChange={(event) => {
+                    const nextCurrency = event.target.value;
+                    setDisplayCurrency(nextCurrency);
+                    setDisplayCurrencyUsdRate(nextCurrency === "USD" ? 1 : null);
+                  }}
+                  className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-[11px] font-medium tracking-normal text-zinc-200 outline-none transition focus:border-emerald-400"
+                >
+                  {DISPLAY_CURRENCIES.map((currency) => (
+                    <option key={currency} value={currency}>
+                      {currency}
+                    </option>
+                  ))}
+                </select>
               </div>
               {hasMarks ? (
                 <span
@@ -451,7 +481,9 @@ export default function Home() {
               )}
             </div>
             <p className="mt-4 font-mono text-3xl font-semibold tracking-tight text-zinc-50">
-              {hasMarks ? formatUsd(totals.totalValue) : "—"}
+              {displayedTotalValue === null
+                ? "—"
+                : formatAssetCurrency(displayedTotalValue, displayCurrency)}
             </p>
             <p className="mt-2 text-xs text-zinc-500">
               {lastUpdated === null

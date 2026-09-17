@@ -63,6 +63,7 @@ function marketRegion(quote: {
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const symbolsParam = searchParams.get("symbols") || "VOO,QQQ,BTC-USD";
+  const displayCurrency = (searchParams.get("currency") || "USD").trim().toUpperCase();
     const symbols = symbolsParam
       .split(",")
       .map((s) => s.trim().toUpperCase())
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
         })
       );
 
-      const currencies = [...new Set(quotes.map((quote) => quote.currency))];
+      const currencies = [...new Set([...quotes.map((quote) => quote.currency), displayCurrency])];
       const usdRates = new Map<string, number | null>([["USD", 1]]);
       await Promise.all(
         currencies
@@ -131,7 +132,12 @@ export async function GET(request: NextRequest) {
         usdRate: usdRates.get(quote.currency) ?? null,
       }));
   
-      return NextResponse.json({ success: true, data: quotesWithUsdRates });
+      return NextResponse.json({
+        success: true,
+        data: quotesWithUsdRates,
+        displayCurrency,
+        displayCurrencyUsdRate: usdRates.get(displayCurrency) ?? null,
+      });
     } catch (error) {
       console.error("API error:", error);
       return NextResponse.json({ success: false, error: "Failed to fetch quotes" }, { status: 500 });
