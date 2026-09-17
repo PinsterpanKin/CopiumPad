@@ -27,6 +27,7 @@ import {
   markPosition,
   portfolioTotals,
   type Holding,
+  type PositionMark,
   type QuoteSnapshot,
 } from "@/lib/finance/portfolio";
 import { PositionDialog } from "@/components/position-dialog";
@@ -68,6 +69,22 @@ type SearchResponse = {
   data?: SearchResult[];
   error?: string;
 };
+
+type WatchlistCluster = {
+  key: string;
+  label: string;
+  positions: PositionMark[];
+};
+
+function watchlistClusterFor(quote: QuoteSnapshot | undefined): { key: string; label: string } {
+  const quoteType = quote?.quoteType?.toUpperCase() ?? "";
+  if (quoteType.startsWith("CRYPTO")) {
+    return { key: "crypto", label: "Crypto" };
+  }
+
+  const label = quote?.exchange?.trim() || "Other markets";
+  return { key: label.toLowerCase(), label };
+}
 
 function pnlClassName(value: DecimalInput | null): string {
   if (value === null) {
@@ -248,6 +265,29 @@ export default function Home() {
   }, [holdings, quotes]);
 
   const totals = useMemo(() => portfolioTotals(positions), [positions]);
+  const watchlistClusters = useMemo<WatchlistCluster[]>(() => {
+    const quotesBySymbol = new Map(
+      quotes.map((quote) => [quote.symbol.toUpperCase(), quote]),
+    );
+    const clusters = new Map<string, WatchlistCluster>();
+
+    for (const position of positions) {
+      const cluster = watchlistClusterFor(
+        quotesBySymbol.get(position.symbol.toUpperCase()),
+      );
+      const existing = clusters.get(cluster.key);
+      if (existing) {
+        existing.positions.push(position);
+      } else {
+        clusters.set(cluster.key, {
+          ...cluster,
+          positions: [position],
+        });
+      }
+    }
+
+    return [...clusters.values()];
+  }, [positions, quotes]);
   const hasMarks = positions.some((position) => position.marketValueUsd !== null);
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? null;
   const selectedPosition = positions.find((position) => position.symbol === selectedSymbol) ?? null;
@@ -528,9 +568,16 @@ export default function Home() {
                   <th className="px-5 py-3 font-medium"> </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800 font-mono text-[13px]">
-                {positions.map((position) => (
-                  <tr key={position.symbol} className="hover:bg-zinc-900/80">
+              {watchlistClusters.map((cluster) => (
+                <tbody key={cluster.key} className="divide-y divide-zinc-800 font-mono text-[13px]">
+                  <tr className="bg-zinc-950/70">
+                    <th colSpan={7} className="px-5 py-2 text-left font-sans text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-400">
+                      {cluster.label}
+                      <span className="ml-2 text-zinc-600">{cluster.positions.length}</span>
+                    </th>
+                  </tr>
+                  {cluster.positions.map((position) => (
+                    <tr key={position.symbol} className="hover:bg-zinc-900/80">
                     <td className="px-5 py-4">
                       <button
                         type="button"
@@ -613,8 +660,9 @@ export default function Home() {
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                  ))}
+                </tbody>
+              ))}
             </table>
           </div>
           {selectedQuote !== null && selectedPosition !== null ? (
