@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  formatCompactNumber,
   formatPercent,
   formatSignedUsd,
   toDecimal,
@@ -124,6 +125,12 @@ function formatAssetCurrency(value: DecimalInput, currency = "USD"): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function formatCompactAssetCurrency(value: DecimalInput, currency = "USD"): string {
+  const code = currency.toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[code] ?? `${code} `;
+  return `${symbol}${formatCompactNumber(value)}`;
 }
 
 function formatMaybeAssetCurrency(
@@ -739,7 +746,7 @@ export default function Home() {
                     <dd className="mt-1 font-mono text-sm text-zinc-100">
                       {selectedQuote.marketCap == null
                         ? "Not available"
-                        : formatAssetCurrency(selectedQuote.marketCap, selectedQuote.currency)}
+                        : formatCompactAssetCurrency(selectedQuote.marketCap, selectedQuote.currency)}
                     </dd>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">

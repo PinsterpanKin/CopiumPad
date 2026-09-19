@@ -92,6 +92,34 @@ export function formatUsd(
   return `${negative ? "-" : ""}$${body}`;
 }
 
+export function formatCompactNumber(value: DecimalInput): string {
+  const amount = toDecimal(value);
+  const absoluteAmount = amount.abs();
+  const units = [
+    { threshold: new Decimal("1000000000000"), suffix: "t" },
+    { threshold: new Decimal("1000000000"), suffix: "b" },
+    { threshold: new Decimal("1000000"), suffix: "m" },
+    { threshold: new Decimal("1000"), suffix: "k" },
+  ];
+  let unitIndex = units.findIndex(({ threshold }) =>
+    absoluteAmount.greaterThanOrEqualTo(threshold),
+  );
+
+  if (unitIndex === -1) {
+    return amount.toDecimalPlaces(2).toNumber().toLocaleString("en-US", {
+      maximumFractionDigits: 2,
+    });
+  }
+
+  let compactValue = amount.div(units[unitIndex].threshold).toDecimalPlaces(2);
+  if (compactValue.abs().greaterThanOrEqualTo(1000) && unitIndex > 0) {
+    unitIndex -= 1;
+    compactValue = amount.div(units[unitIndex].threshold).toDecimalPlaces(2);
+  }
+
+  return `${compactValue.toNumber().toLocaleString("en-US", { maximumFractionDigits: 2 })}${units[unitIndex].suffix}`;
+}
+
 export function formatSignedUsd(
   value: DecimalInput,
   fractionDigits = 2,
