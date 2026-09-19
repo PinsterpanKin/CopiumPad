@@ -1,6 +1,7 @@
 import Decimal from "decimal.js";
 import { describe, expect, it } from "vitest";
 import {
+  formatCompactNumber,
   formatPercent,
   formatQuantity,
   formatSignedUsd,
@@ -43,6 +44,13 @@ describe("percentOf", () => {
 });
 
 describe("formatters", () => {
+  it("formats large numbers with compact units", () => {
+    expect(formatCompactNumber("1234")).toBe("1.23k");
+    expect(formatCompactNumber("1234567.89")).toBe("1.23m");
+    expect(formatCompactNumber("9876543210")).toBe("9.88b");
+    expect(formatCompactNumber("999999")).toBe("1m");
+  });
+
   it("formats USD with grouping separators", () => {
     expect(formatUsd("128450")).toBe("$128,450.00");
     expect(formatUsd("-12300")).toBe("-$12,300.00");
